@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>PRIME CRUSH ELITE | 素数粉砕選抜隊</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #000; color: #00ff41; font-family: 'Courier New', monospace; touch-action: none; overflow: hidden; }
+        #game-ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+        .score-display { position: absolute; top: 10px; right: 20px; font-size: 1.5rem; text-shadow: 0 0 10px #00ff41; }
+        #input-panel { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 10px; pointer-events: auto; }
+        .p-btn { width: 70px; height: 70px; border: 3px solid #00ff41; border-radius: 50%; background: rgba(0,255,65,0.1); color: #00ff41; font-size: 1.8rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.1s; -webkit-tap-highlight-color: transparent; }
+        .p-btn:active { transform: scale(0.8); background: #00ff41; color: #000; }
+        #menu { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; }
+        .mode-sel { margin: 10px; padding: 15px; border: 1px solid #00ff41; background: none; color: #00ff41; width: 280px; font-size: 1.1rem; cursor: pointer; }
+        .mode-sel:hover { background: #00ff41; color: #000; }
+    </style>
+</head>
+<body>
+
+<div id="menu">
+    <h1 style="font-size: 3.5rem; margin-bottom: 0;">PRIME CRUSH</h1>
+    <p style="margin-bottom: 40px;">- ELITE MATHEMATICS UNIT -</p>
+    <button class="mode-sel" onclick="setup(20, [2,3,5])">KINDERGARTEN (5歳〜)</button>
+    <button class="mode-sel" onclick="setup(100, [2,3,5,7,11])">CLERK (一般人)</button>
+    <button class="mode-sel" onclick="setup(999, [2,3,5,7,11,13,17,19])">GENIUS (変態級)</button>
+</div>
+
+<div id="game-ui">
+    <div class="score-display">SCORE: <span id="score-val">2</span></div>
+    <div id="input-panel"></div>
+</div>
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let score = 2;
+let items = [];
+let particles = [];
+let difficulty = 20;
+
+function isP(n) {
+    for(let i=2, s=Math.sqrt(n); i<=s; i++) if(n%i===0) return false;
+    return n > 1;
+}
+
+function setup(limit, primes) {
+    difficulty = limit;
+    document.getElementById('menu').style.display = 'none';
+    const panel = document.getElementById('input-panel');
+    primes.forEach(p => {
+        const b = document.createElement('div');
+        b.className = 'p-btn';
+        b.innerText = p;
+        b.onmousedown = () => action(p);
+        b.ontouchstart = (e) => { e.preventDefault(); action(p); };
+        panel.appendChild(b);
+    });
+    spawn();
+    tick();
+}
+
+function createExplosion(x, y, color) {
+    for(let i=0; i<15; i++) {
+        particles.push({
+            x, y, 
+            vx: (Math.random()-0.5)*10, 
+            vy: (Math.random()-0.5)*10, 
+            life: 1.0, 
+            color
+        });
+    }
+}
+
+function action(p) {
+    let hit = false;
+    items.forEach(it => {
+        if (it.y > 0 && it.v % p === 0) {
+            it.v /= p;
+            createExplosion(it.x, it.y, "#00bcff");
+            if (it.v === 1) it.dead = true;
+            hit = true;
+        }
+    });
+    if(hit) {
+        let next = score + 1;
+        while(!isP(next)) next++;
+        score = next;
+        document.getElementById('score-val').innerText = score;
+    }
+}
+
+function spawn() {
+    items.push({
+        v: Math.floor(Math.random() * (difficulty - 5)) + 5,
+        x: Math.random() * (window.innerWidth - 100) + 50,
+        y: -50,
+        dead: false
+    });
+    setTimeout(spawn, Math.max(800, 3000 - score/5));
+}
+
+function tick() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Particles
+    particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+        ctx.fillStyle = `rgba(0, 255, 65, ${p.life})`;
+        ctx.fillRect(p.x, p.y, 4, 4);
+    });
+    particles = particles.filter(p => p.life > 0);
+
+    // Numbers
+    items = items.filter(it => !it.dead);
+    items.forEach(it => {
+        it.y += 1.5 + (score/2000);
+        if(it.y > canvas.height) location.reload();
+        ctx.fillStyle = isP(it.v) ? "#00ff41" : "#00bcff";
+        ctx.font = "bold 45px 'Courier New'";
+        ctx.textAlign = "center";
+        ctx.fillText(it.v, it.x, it.y);
+    });
+    requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>
