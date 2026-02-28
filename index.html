@@ -35,7 +35,7 @@
 </div>
 
 <div id="game-over" class="overlay hidden">
-    <h1 id="fail-title" style="color: #ff003c;">MISSION FAILED</h1>
+    <h1 style="color: #ff003c;">MISSION FAILED</h1>
     <p id="final-result" style="margin: 20px 0; font-size: 1.2rem;"></p>
     <button class="menu-btn" onclick="retry()">RETRY</button>
     <button class="menu-btn" onclick="goHome()">HOME</button>
@@ -103,13 +103,23 @@ function action(p) {
     const target = items.reduce((prev, curr) => (prev.y > curr.y) ? prev : curr);
     let correct = false;
 
-    if (p === 'IS_PRIME') {
-        if (isP(target.v)) correct = true;
+    // 【修正済み】素数判定ロジック
+    if (isP(target.v)) {
+        if (p === 'IS_PRIME') {
+            correct = true;
+            target.dead = true; 
+        } else {
+            correct = false; 
+        }
     } else {
-        if (target.v % p === 0) {
+        if (p === 'IS_PRIME') {
+            correct = false;
+        } else if (target.v % p === 0) {
             target.v /= p;
             if (target.v === 1) target.dead = true;
             correct = true;
+        } else {
+            correct = false;
         }
     }
 
@@ -122,25 +132,20 @@ function action(p) {
 }
 
 function applyPenalty() {
-    // 幼稚園級はスピードアップの警告のみ
     if (diffLimit <= 20) {
-        items.forEach(it => it.y += 20); // 数字を少し下げるペナルティ
+        items.forEach(it => it.y += 25);
         return;
     }
-
-    // それ以外はボタン凍結（フリーズ）
     canPress = false;
     document.getElementById('input-panel').style.opacity = "0.2";
     document.getElementById('freeze-overlay').style.display = "block";
-    
     setTimeout(() => {
         if (!isPlaying) return;
         canPress = true;
         document.getElementById('input-panel').style.opacity = "1";
         document.getElementById('freeze-overlay').style.display = "none";
     }, 800);
-
-    reduceLife("計算ミスによるシステムフリーズ");
+    reduceLife("MISCALCULATION");
 }
 
 function scoreUp() {
@@ -163,7 +168,6 @@ function spawn() {
         x: Math.random() * (window.innerWidth - 80) + 40,
         y: -50, dead: false
     });
-    // 最高難易度は徐々に加速
     let interval = Math.max(600, 3000 - score / (diffLimit > 500 ? 1 : 4));
     spawnTimer = setTimeout(spawn, interval);
 }
@@ -208,13 +212,12 @@ function tick() {
 
     items = items.filter(it => !it.dead);
     items.forEach(it => {
-        // スピード設計：GENIUS以上は加速度を上げる
         let speedBase = (diffLimit > 500) ? 1.5 : 0.8;
         it.y += speedBase + (score/2000);
         
         if(it.y > canvas.height - 180) {
             it.dead = true;
-            reduceLife("見逃しによる防衛ライン突破");
+            reduceLife("LINE BREACH");
         }
         if (it === target) {
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
