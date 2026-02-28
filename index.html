@@ -8,12 +8,28 @@
         body { margin: 0; background: #000; color: #00ff41; font-family: 'JetBrains Mono', monospace; touch-action: none; overflow: hidden; }
         #game-ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .info-bar { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; font-size: 1.2rem; }
-        #input-panel { position: absolute; bottom: 80px; width: 100%; display: flex; justify-content: center; gap: 8px; pointer-events: auto; flex-wrap: wrap; padding: 0 10px; box-sizing: border-box; transition: opacity 0.2s; }
-        .p-btn { width: 60px; height: 60px; border: 2px solid #00ff41; border-radius: 50%; background: rgba(0,255,65,0.1); color: #00ff41; font-size: 1.4rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        
+        /* ボタン位置を上に調整してスマホバーを回避 */
+        #input-panel { 
+            position: absolute; 
+            bottom: 140px; 
+            width: 100%; 
+            display: flex; 
+            justify-content: center; 
+            gap: 12px; 
+            pointer-events: auto; 
+            flex-wrap: wrap; 
+            padding: 0 20px; 
+            box-sizing: border-box; 
+            transition: opacity 0.2s; 
+        }
+
+        .p-btn { width: 65px; height: 65px; border: 2px solid #00ff41; border-radius: 50%; background: rgba(0,255,65,0.1); color: #00ff41; font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .p-btn:active { transform: scale(0.9); background: #00ff41; color: #000; }
-        .prime-special { width: auto !important; padding: 0 20px; border-radius: 30px !important; border-color: #fff !important; color: #fff !important; }
+        .prime-special { width: auto !important; padding: 0 25px; border-radius: 35px !important; border-color: #fff !important; color: #fff !important; }
+        
         .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; text-align: center; }
-        .menu-btn { margin: 10px; padding: 15px; border: 1px solid #00ff41; background: none; color: #00ff41; width: 280px; font-size: 1rem; cursor: pointer; }
+        .menu-btn { margin: 10px; padding: 18px; border: 1px solid #00ff41; background: none; color: #00ff41; width: 280px; font-size: 1.1rem; cursor: pointer; border-radius: 8px; }
         .menu-btn:hover { background: #00ff41; color: #000; }
         .hidden { display: none; }
         h1 { font-size: 3rem; text-shadow: 0 0 15px #00ff41; margin: 0; }
@@ -28,9 +44,9 @@
     <h1>PRIME CRUSH</h1>
     <p>ELITE MATHEMATICS UNIT</p>
     <div style="margin-top: 20px;">
-        <button class="menu-btn" onclick="gameStart(20, [2,3,5])">KINDERGARTEN (あそぶ/3ライフ)</button>
-        <button class="menu-btn" onclick="gameStart(100, [2,3,5,7,11])">CLERK (正確に/2ライフ)</button>
-        <button class="menu-btn" onclick="gameStart(999, [2,3,5,7,11,13,17,19])">GENIUS (極限/即死フリーズ)</button>
+        <button class="menu-btn" onclick="gameStart(20, [2,3,5])">KINDERGARTEN (2,3,5のみ)</button>
+        <button class="menu-btn" onclick="gameStart(100, [2,3,5,7,11])">CLERK (一般事務レベル)</button>
+        <button class="menu-btn" onclick="gameStart(999, [2,3,5,7,11,13,17,19])">GENIUS (素数マスター)</button>
     </div>
 </div>
 
@@ -74,6 +90,8 @@ function gameStart(limit, primes) {
     
     const panel = document.getElementById('input-panel');
     panel.innerHTML = '';
+    
+    // 難易度に応じた適切なボタンを生成
     primes.forEach(p => {
         const b = document.createElement('div');
         b.className = 'p-btn'; b.innerText = p;
@@ -103,23 +121,13 @@ function action(p) {
     const target = items.reduce((prev, curr) => (prev.y > curr.y) ? prev : curr);
     let correct = false;
 
-    // 【修正済み】素数判定ロジック
     if (isP(target.v)) {
-        if (p === 'IS_PRIME') {
-            correct = true;
-            target.dead = true; 
-        } else {
-            correct = false; 
-        }
+        if (p === 'IS_PRIME') { correct = true; target.dead = true; }
     } else {
-        if (p === 'IS_PRIME') {
-            correct = false;
-        } else if (target.v % p === 0) {
+        if (p !== 'IS_PRIME' && target.v % p === 0) {
             target.v /= p;
             if (target.v === 1) target.dead = true;
             correct = true;
-        } else {
-            correct = false;
         }
     }
 
@@ -133,7 +141,7 @@ function action(p) {
 
 function applyPenalty() {
     if (diffLimit <= 20) {
-        items.forEach(it => it.y += 25);
+        items.forEach(it => it.y += 30); // 幼稚園級はペナルティ緩和
         return;
     }
     canPress = false;
@@ -168,7 +176,7 @@ function spawn() {
         x: Math.random() * (window.innerWidth - 80) + 40,
         y: -50, dead: false
     });
-    let interval = Math.max(600, 3000 - score / (diffLimit > 500 ? 1 : 4));
+    let interval = Math.max(600, 3200 - score / (diffLimit > 500 ? 1 : 4));
     spawnTimer = setTimeout(spawn, interval);
 }
 
@@ -212,16 +220,16 @@ function tick() {
 
     items = items.filter(it => !it.dead);
     items.forEach(it => {
-        let speedBase = (diffLimit > 500) ? 1.5 : 0.8;
-        it.y += speedBase + (score/2000);
+        let speedBase = (diffLimit > 500) ? 1.4 : 0.7;
+        it.y += speedBase + (score/2500);
         
-        if(it.y > canvas.height - 180) {
+        if(it.y > canvas.height - 220) {
             it.dead = true;
             reduceLife("LINE BREACH");
         }
         if (it === target) {
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
-            ctx.strokeRect(it.x - 45, it.y - 50, 90, 70);
+            ctx.strokeRect(it.x - 50, it.y - 55, 100, 80);
             ctx.fillStyle = "#fff";
         } else {
             ctx.fillStyle = isP(it.v) ? "#00ff41" : "#00bcff";
