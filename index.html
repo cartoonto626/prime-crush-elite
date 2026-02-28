@@ -9,30 +9,18 @@
         #game-ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .info-bar { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; font-size: 1.2rem; }
         
-        /* ボタン位置を上に調整してスマホバーを回避 */
-        #input-panel { 
-            position: absolute; 
-            bottom: 140px; 
-            width: 100%; 
-            display: flex; 
-            justify-content: center; 
-            gap: 12px; 
-            pointer-events: auto; 
-            flex-wrap: wrap; 
-            padding: 0 20px; 
-            box-sizing: border-box; 
-            transition: opacity 0.2s; 
-        }
-
-        .p-btn { width: 65px; height: 65px; border: 2px solid #00ff41; border-radius: 50%; background: rgba(0,255,65,0.1); color: #00ff41; font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        #input-panel { position: absolute; bottom: 140px; width: 100%; display: flex; justify-content: center; gap: 10px; pointer-events: auto; flex-wrap: wrap; padding: 0 20px; box-sizing: border-box; transition: opacity 0.2s; }
+        .p-btn { width: 62px; height: 62px; border: 2px solid #00ff41; border-radius: 50%; background: rgba(0,255,65,0.1); color: #00ff41; font-size: 1.4rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .p-btn:active { transform: scale(0.9); background: #00ff41; color: #000; }
-        .prime-special { width: auto !important; padding: 0 25px; border-radius: 35px !important; border-color: #fff !important; color: #fff !important; }
+        .prime-special { width: auto !important; padding: 0 20px; border-radius: 30px !important; border-color: #fff !important; color: #fff !important; }
         
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; text-align: center; }
-        .menu-btn { margin: 10px; padding: 18px; border: 1px solid #00ff41; background: none; color: #00ff41; width: 280px; font-size: 1.1rem; cursor: pointer; border-radius: 8px; }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; text-align: center; overflow-y: auto; padding: 20px 0; }
+        .menu-btn { margin: 8px; padding: 15px; border: 1px solid #00ff41; background: none; color: #00ff41; width: 280px; font-size: 1rem; cursor: pointer; border-radius: 8px; }
         .menu-btn:hover { background: #00ff41; color: #000; }
         .hidden { display: none; }
-        h1 { font-size: 3rem; text-shadow: 0 0 15px #00ff41; margin: 0; }
+        h1 { font-size: 2.5rem; text-shadow: 0 0 15px #00ff41; margin: 10px 0; }
+        .rank-box { margin: 15px 0; padding: 10px; border: 1px solid #333; width: 250px; font-size: 0.9rem; color: #aaa; }
+        .rank-title { color: #00ff41; margin-bottom: 5px; font-weight: bold; }
         #freeze-overlay { position: absolute; inset: 0; background: rgba(255,0,0,0.2); display: none; z-index: 5; pointer-events: none; }
     </style>
 </head>
@@ -42,17 +30,18 @@
 
 <div id="start-menu" class="overlay">
     <h1>PRIME CRUSH</h1>
-    <p>ELITE MATHEMATICS UNIT</p>
-    <div style="margin-top: 20px;">
-        <button class="menu-btn" onclick="gameStart(20, [2,3,5])">KINDERGARTEN (2,3,5のみ)</button>
-        <button class="menu-btn" onclick="gameStart(100, [2,3,5,7,11])">CLERK (一般事務レベル)</button>
-        <button class="menu-btn" onclick="gameStart(999, [2,3,5,7,11,13,17,19])">GENIUS (素数マスター)</button>
+    <div id="ranking-container"></div>
+    <div style="margin-top: 10px;">
+        <button class="menu-btn" onclick="gameStart('KINDERGARTEN', 20, [2,3,5])">KINDERGARTEN</button>
+        <button class="menu-btn" onclick="gameStart('CLERK', 100, [2,3,5,7,11])">CLERK</button>
+        <button class="menu-btn" onclick="gameStart('GENIUS', 999, [2,3,5,7,11,13,17,19])">GENIUS</button>
     </div>
 </div>
 
 <div id="game-over" class="overlay hidden">
     <h1 style="color: #ff003c;">MISSION FAILED</h1>
-    <p id="final-result" style="margin: 20px 0; font-size: 1.2rem;"></p>
+    <p id="final-result" style="margin: 15px 0; font-size: 1.2rem;"></p>
+    <div id="new-record" style="color: #ffcc00; font-weight: bold; margin-bottom: 15px;" class="hidden">NEW RECORD!</div>
     <button class="menu-btn" onclick="retry()">RETRY</button>
     <button class="menu-btn" onclick="goHome()">HOME</button>
 </div>
@@ -70,28 +59,55 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let score = 2, items = [], particles = [], isPlaying = false, canPress = true;
-let diffLimit, currentPrimes, life, maxLife, spawnTimer;
+let diffMode, startLimit, currentPrimes, life, maxLife, spawnTimer;
 
 const isP = (n) => {
     for(let i=2, s=Math.sqrt(n); i<=s; i++) if(n%i===0) return false;
     return n > 1;
 };
 
-function gameStart(limit, primes) {
-    diffLimit = limit;
+// --- ランキング管理 ---
+function getRanking(mode) {
+    const data = localStorage.getItem('pc_rank_' + mode);
+    return data ? JSON.parse(data) : [];
+}
+
+function saveScore(mode, newScore) {
+    let ranks = getRanking(mode);
+    ranks.push(newScore);
+    ranks.sort((a, b) => b - a);
+    ranks = ranks.slice(0, 5); // TOP 5
+    localStorage.setItem('pc_rank_' + mode, JSON.stringify(ranks));
+    return ranks[0] === newScore;
+}
+
+function displayRanking() {
+    const container = document.getElementById('ranking-container');
+    const modes = ['KINDERGARTEN', 'CLERK', 'GENIUS'];
+    container.innerHTML = '';
+    modes.forEach(m => {
+        const ranks = getRanking(m);
+        const best = ranks.length > 0 ? ranks[0] : '-';
+        container.innerHTML += `<div class="rank-box"><div class="rank-title">${m}</div>BEST: ${best}</div>`;
+    });
+}
+
+// --- ゲーム制御 ---
+function gameStart(mode, limit, primes) {
+    diffMode = mode;
+    startLimit = limit;
     currentPrimes = primes;
-    if (limit <= 20) { life = maxLife = 3; }
-    else if (limit <= 100) { life = maxLife = 2; }
+    if (mode === 'KINDERGARTEN') { life = maxLife = 3; }
+    else if (mode === 'CLERK') { life = maxLife = 2; }
     else { life = maxLife = 1; }
 
     document.getElementById('start-menu').classList.add('hidden');
     document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('new-record').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
     
     const panel = document.getElementById('input-panel');
     panel.innerHTML = '';
-    
-    // 難易度に応じた適切なボタンを生成
     primes.forEach(p => {
         const b = document.createElement('div');
         b.className = 'p-btn'; b.innerText = p;
@@ -109,11 +125,6 @@ function gameStart(limit, primes) {
     score = 2; updateUI();
     items = []; particles = []; isPlaying = true; canPress = true;
     spawn(); tick();
-}
-
-function updateUI() {
-    document.getElementById('score-val').innerText = score;
-    document.getElementById('life-display').innerHTML = `<span style="color:#ff003c">${"❤️".repeat(life)}</span>${"🖤".repeat(maxLife - life)}`;
 }
 
 function action(p) {
@@ -140,8 +151,8 @@ function action(p) {
 }
 
 function applyPenalty() {
-    if (diffLimit <= 20) {
-        items.forEach(it => it.y += 30); // 幼稚園級はペナルティ緩和
+    if (diffMode === 'KINDERGARTEN') {
+        items.forEach(it => it.y += 30);
         return;
     }
     canPress = false;
@@ -163,35 +174,45 @@ function scoreUp() {
     updateUI();
 }
 
-function reduceLife(reason) {
-    life--;
-    updateUI();
-    if (life <= 0) gameOver(reason);
+function updateUI() {
+    document.getElementById('score-val').innerText = score;
+    document.getElementById('life-display').innerHTML = `<span style="color:#ff003c">${"❤️".repeat(life)}</span>${"🖤".repeat(maxLife - life)}`;
 }
 
 function spawn() {
     if(!isPlaying) return;
+    
+    // 【徐々に難しくなる】スコアに応じて出てくる数字の範囲が広がる
+    const levelBonus = Math.floor(score / 10) * 5;
+    const currentMax = startLimit + levelBonus;
+    
     items.push({
-        v: Math.floor(Math.random() * (diffLimit - 5)) + 5,
+        v: Math.floor(Math.random() * (currentMax - 5)) + 5,
         x: Math.random() * (window.innerWidth - 80) + 40,
         y: -50, dead: false
     });
-    let interval = Math.max(600, 3200 - score / (diffLimit > 500 ? 1 : 4));
+    
+    // 【加速】スコアに応じて湧きが早くなる
+    let interval = Math.max(500, 3000 - score * 2);
     spawnTimer = setTimeout(spawn, interval);
 }
 
 function gameOver(reason) {
     isPlaying = false;
     clearTimeout(spawnTimer);
+    const isNewRecord = saveScore(diffMode, score);
+    if (isNewRecord) document.getElementById('new-record').classList.remove('hidden');
+    
     document.getElementById('game-over').classList.remove('hidden');
     document.getElementById('final-result').innerText = `${reason}\nSCORE: ${score}`;
 }
 
-function retry() { gameStart(diffLimit, currentPrimes); }
+function retry() { gameStart(diffMode, startLimit, currentPrimes); }
 function goHome() {
     document.getElementById('game-over').classList.add('hidden');
     document.getElementById('game-ui').classList.add('hidden');
     document.getElementById('start-menu').classList.remove('hidden');
+    displayRanking();
     isPlaying = false;
 }
 
@@ -220,8 +241,9 @@ function tick() {
 
     items = items.filter(it => !it.dead);
     items.forEach(it => {
-        let speedBase = (diffLimit > 500) ? 1.4 : 0.7;
-        it.y += speedBase + (score/2500);
+        // 【加速】スコアに応じて落下が早くなる
+        let speed = (diffMode === 'GENIUS' ? 1.5 : 0.8) + (score/2000);
+        it.y += speed;
         
         if(it.y > canvas.height - 220) {
             it.dead = true;
@@ -239,6 +261,9 @@ function tick() {
     });
     requestAnimationFrame(tick);
 }
+
+// 初期起動
+displayRanking();
 </script>
 </body>
 </html>
